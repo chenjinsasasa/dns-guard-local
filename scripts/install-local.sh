@@ -7,6 +7,7 @@ DESTINATION_DIR="$HOME/Applications"
 DESTINATION_APP="$DESTINATION_DIR/DNS守卫.app"
 SUPPORT_DIR="$HOME/Library/Application Support/DNS Guard"
 LEGACY_DATA="$PROJECT_DIR/data"
+BUILT_APP="$PROJECT_DIR/build/.staging/DNS守卫.app"
 
 NODE_BIN=$(command -v node || true)
 YQ_BIN=$(command -v yq || true)
@@ -55,6 +56,6 @@ done
 if [[ -e "$DESTINATION_APP" ]]; then
   /bin/rm -R "$DESTINATION_APP"
 fi
-ditto "$PROJECT_DIR/dist/DNS守卫.app" "$DESTINATION_APP"
+ditto "$BUILT_APP" "$DESTINATION_APP"
 open "$DESTINATION_APP"
 echo "Installed: $DESTINATION_APP"

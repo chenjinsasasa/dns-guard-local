@@ -3,15 +3,17 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-BUILD_DIR="$PROJECT_DIR/build/macos"
-DIST_DIR="$PROJECT_DIR/dist"
-APP_BUNDLE="$DIST_DIR/DNS守卫.app"
+BUILD_ROOT="$PROJECT_DIR/build"
+BUILD_DIR="$BUILD_ROOT/macos"
+APP_BUNDLE="$BUILD_ROOT/.staging/DNS守卫.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 APP_RESOURCES="$RESOURCES_DIR/dns-guard"
 SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
 
+mkdir -p "$BUILD_ROOT"
+touch "$BUILD_ROOT/.metadata_never_index"
 if [[ -e "$APP_BUNDLE" ]]; then
   /bin/rm -R "$APP_BUNDLE"
 fi
