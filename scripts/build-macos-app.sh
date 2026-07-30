@@ -38,6 +38,7 @@ lipo -create "$ARM_BINARY" "$INTEL_BINARY" -output "$MACOS_DIR/DNSGuardLauncher"
 cp "$PROJECT_DIR/macos/Info.plist" "$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$CONTENTS_DIR/Info.plist"
 cp "$PROJECT_DIR/macos/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+cp "$PROJECT_DIR/assets/DeveloperAvatar.png" "$RESOURCES_DIR/DeveloperAvatar.png"
 cp "$PROJECT_DIR/server.mjs" "$PROJECT_DIR/core.mjs" "$PROJECT_DIR/package.json" "$APP_RESOURCES/"
 chmod 755 "$MACOS_DIR/DNSGuardLauncher"
 

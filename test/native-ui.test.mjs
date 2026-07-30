@@ -17,6 +17,12 @@ test('uses a native SwiftUI window without browser embedding', () => {
   assert.doesNotMatch(`${launcher}\n${views}`, /WKWebView|WebKit/);
 });
 
+test('exposes feedback and developer links in the About page', () => {
+  assert.match(views, /dns-guard-local\/issues\/new/);
+  assert.match(views, /github\.com\/chenjinsasasa/);
+  assert.match(views, /DeveloperAvatar/);
+});
+
 test('does not bundle the retired web interface', () => {
   assert.doesNotMatch(buildScript, /public\/index\.html|public\/styles\.css|public\/app\.js/);
   assert.doesNotMatch(server, /serveStatic|PUBLIC_DIR/);

@@ -12,6 +12,11 @@ if [[ ! -x "$BINARY" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$APP_BUNDLE/Contents/Resources/DeveloperAvatar.png" ]]; then
+  echo "GitHub 头像资源缺失。"
+  exit 1
+fi
+
 ARCHITECTURES=$(lipo -archs "$BINARY")
 if [[ "$ARCHITECTURES" != *"arm64"* || "$ARCHITECTURES" != *"x86_64"* ]]; then
   echo "应用不是通用架构：$ARCHITECTURES"

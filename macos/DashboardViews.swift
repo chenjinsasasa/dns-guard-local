@@ -503,13 +503,16 @@ private struct DetailsView: View {
 private struct AboutView: View {
     let status: DNSGuardStatus
 
+    private let feedbackURL = URL(string: "https://github.com/chenjinsasasa/dns-guard-local/issues/new")!
+    private let profileURL = URL(string: "https://github.com/chenjinsasasa")!
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
-                Spacer(minLength: 26)
+            VStack(spacing: 16) {
+                Spacer(minLength: 16)
                 Image(nsImage: NSImage(named: NSImage.applicationIconName) ?? NSImage())
                     .resizable()
-                    .frame(width: 104, height: 104)
+                    .frame(width: 88, height: 88)
                     .shadow(color: .black.opacity(0.18), radius: 14, y: 7)
                 VStack(spacing: 5) {
                     Text("DNS 守卫")
@@ -527,14 +530,104 @@ private struct AboutView: View {
                     }
                     .frame(maxWidth: 420, alignment: .leading)
                 }
+
+                Surface(padding: 0) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "bubble.left.and.text.bubble.right")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.green)
+                            .frame(width: 38, height: 38)
+                            .background(.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("问题和建议")
+                                .font(.headline)
+                            Text("发现问题或有新建议")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Link(destination: feedbackURL) {
+                            Label("发送反馈", systemImage: "paperplane")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: 452)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("开发者")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+
+                    Surface(padding: 0) {
+                        Link(destination: profileURL) {
+                            HStack(spacing: 13) {
+                                DeveloperAvatar()
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("chenjin")
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
+                                    Text("github.com/chenjinsasasa")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color(nsColor: .quaternaryLabelColor).opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+                            }
+                            .padding(16)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .frame(maxWidth: 452)
+
                 Text("本工具保护 DNS 解析路径，不等同于 VPN。")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-                Spacer(minLength: 26)
+                Spacer(minLength: 16)
             }
             .frame(maxWidth: .infinity)
             .padding(24)
         }
+    }
+}
+
+private struct DeveloperAvatar: View {
+    private var image: NSImage? {
+        guard let url = Bundle.main.url(forResource: "DeveloperAvatar", withExtension: "png") else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
+    }
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 48, height: 48)
+        .clipShape(Circle())
+        .overlay {
+            Circle().stroke(Color(nsColor: .separatorColor), lineWidth: 0.75)
+        }
+        .accessibilityLabel("chenjin 的 GitHub 头像")
     }
 }
 

@@ -39,7 +39,7 @@ const DEFAULT_SOCKET = '/tmp/verge/verge-mihomo.sock';
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.DNS_GUARD_PORT || 41731);
 const ACCESS_TOKEN = process.env.DNS_GUARD_TOKEN || crypto.randomBytes(24).toString('hex');
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 let latestDnsTest = null;
 let operationInProgress = false;
