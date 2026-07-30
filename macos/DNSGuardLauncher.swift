@@ -22,6 +22,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stopServer()
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openPanel()
+        return false
+    }
+
     private func configureMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(
@@ -102,7 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: nodePath)
-        process.arguments = ["server.mjs"]
+        process.arguments = [serverFile.path]
         process.currentDirectoryURL = serverDirectory
 
         var environment = ProcessInfo.processInfo.environment

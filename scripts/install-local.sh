@@ -36,7 +36,22 @@ if [[ -f "$LEGACY_DATA/state.json" && ! -f "$SUPPORT_DIR/state.json" ]]; then
   echo "已迁移现有保护状态与配置备份。"
 fi
 
+osascript -e 'tell application id "io.github.chenjinsasasa.dns-guard-local" to quit' 2>/dev/null || true
+for ATTEMPT in 1 2 3 4 5; do
+  if ! pgrep -x DNSGuardLauncher >/dev/null 2>&1; then
+    break
+  fi
+  /bin/sleep 1
+done
 pkill -x DNSGuardLauncher 2>/dev/null || true
+
+for PROCESS_PID in $(/usr/sbin/lsof -tiTCP:41731 -sTCP:LISTEN 2>/dev/null || true); do
+  PROCESS_CWD=$(/usr/sbin/lsof -a -p "$PROCESS_PID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')
+  if [[ "$PROCESS_CWD" == "$DESTINATION_APP/Contents/Resources/dns-guard" ]]; then
+    kill "$PROCESS_PID" 2>/dev/null || true
+  fi
+done
+
 if [[ -e "$DESTINATION_APP" ]]; then
   /bin/rm -R "$DESTINATION_APP"
 fi
