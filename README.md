@@ -2,7 +2,20 @@
 
 面向 macOS 的原生 DNS 状态面板、客户端识别、防泄漏保护和双源出口检测工具。
 
-> DNS Guard Local — local-only DNS leak visibility and protection for Mihomo/Clash Verge Rev.
+> DNS Guard Local — local-only DNS leak detection and protection for macOS.
+
+## 解决的问题
+
+使用代理或 VPN 时，网络流量可能已经从代理节点出站，但 DNS 查询仍交给本地网络、运营商或未受控的明文解析器。这类路径不一致就是常见的 DNS 泄漏，会暴露查询域名、造成区域判断异常，也可能让域名解析受到本地网络影响。
+
+DNS 守卫用于发现并减少这类泄漏：
+
+- 对比当前公网出口与真实 DNS 解析器的位置
+- 检查系统 DNS 路由、TUN 接管、DNS 劫持和明文上游
+- 在 Clash Verge Rev 完整防护模式中移除明文 DNS 与 `system` 回退，并让境外 DNS 跟随代理
+- 对其他代理或 VPN 客户端提供只读识别和 DNS 出口检测，不修改其配置
+
+检测结果代表测试发生时的 DNS 路径，不等同于对所有应用流量的永久保证。浏览器自带安全 DNS、WebRTC、扩展以及应用内置解析器不在当前检测范围内。
 
 ## 功能
 
@@ -12,7 +25,7 @@
 - 没有 Clash 时使用仅检测模式，不修改其他客户端配置
 - 查看 Mihomo TUN、DNS 劫持、严格路由和上游加密状态
 - 通过 Mullvad 与 Net.Coffee 检测真实 DNS 出口
-- 一键移除明文 DNS 与 `system` 回退
+- Clash Verge 完整防护可一键移除明文 DNS 与 `system` 回退
 - 让境外 DNS 跟随代理，并让国内直连域名使用本地加密 DNS
 - 关闭保护时恢复开启前的原始配置
 - 修改前验证 Mihomo 配置，失败时自动回滚

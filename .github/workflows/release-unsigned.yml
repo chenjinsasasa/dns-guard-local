@@ -39,6 +39,7 @@ jobs:
             此构建采用 ad-hoc 签名，未经过 Apple notarization。
 
             - 安装前请核对 `SHA256SUMS`
-            - 需要 macOS 13+、Node.js 22+、yq 与 Clash Verge Rev
+            - 基础运行需要 macOS 13+ 与 Node.js 22+
+            - Clash Verge Rev、TUN 与 yq 仅用于完整防护；其他客户端可使用仅检测模式
             - 首次打开可能需要在“系统设置 → 隐私与安全性”中选择“仍要打开”
           prerelease: true
