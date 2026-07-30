@@ -7,6 +7,7 @@ DESTINATION_DIR="$HOME/Applications"
 DESTINATION_APP="$DESTINATION_DIR/DNS守卫.app"
 SUPPORT_DIR="$HOME/Library/Application Support/DNS Guard"
 LEGACY_DATA="$PROJECT_DIR/data"
+BUILT_APP="$PROJECT_DIR/build/.staging/DNS守卫.app"
 
 NODE_BIN=$(command -v node || true)
 YQ_BIN=$(command -v yq || true)
@@ -14,18 +15,14 @@ if [[ -z "$NODE_BIN" ]] || (( $("$NODE_BIN" -p 'Number(process.versions.node.spl
   echo "需要 Node.js 22 或更高版本。请先运行：brew install node"
   exit 1
 fi
-if [[ -z "$YQ_BIN" ]]; then
-  echo "需要 yq。请先运行：brew install yq"
-  exit 1
-fi
-if [[ ! -x "/Applications/Clash Verge.app/Contents/MacOS/verge-mihomo" ]]; then
-  echo "未找到 Clash Verge Rev，请先安装并启动 TUN。"
-  exit 1
+if [[ -z "$YQ_BIN" || ! -x "/Applications/Clash Verge.app/Contents/MacOS/verge-mihomo" ]]; then
+  echo "Clash 完整防护依赖未就绪，将使用仅检测模式。"
 fi
 
 cd "$PROJECT_DIR"
 npm test
 "$SCRIPT_DIR/build-macos-app.sh"
+"$SCRIPT_DIR/verify-macos-app.sh"
 
 mkdir -p "$DESTINATION_DIR" "$SUPPORT_DIR"
 chmod 700 "$SUPPORT_DIR"
@@ -55,6 +52,6 @@ done
 if [[ -e "$DESTINATION_APP" ]]; then
   /bin/rm -R "$DESTINATION_APP"
 fi
-ditto "$PROJECT_DIR/dist/DNS守卫.app" "$DESTINATION_APP"
+ditto "$BUILT_APP" "$DESTINATION_APP"
 open "$DESTINATION_APP"
 echo "Installed: $DESTINATION_APP"

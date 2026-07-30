@@ -6,12 +6,14 @@ PROJECT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 VERSION=$(cd "$PROJECT_DIR" && node -p 'require("./package.json").version')
 ARCHIVE="$PROJECT_DIR/dist/DNS-Guard-$VERSION-unsigned.zip"
 CHECKSUMS="$PROJECT_DIR/dist/SHA256SUMS"
+APP_BUNDLE="$PROJECT_DIR/build/.staging/DNS守卫.app"
 
 "$SCRIPT_DIR/build-macos-app.sh"
+"$SCRIPT_DIR/verify-macos-app.sh"
 if [[ -e "$ARCHIVE" ]]; then
   /bin/rm "$ARCHIVE"
 fi
-ditto -c -k --sequesterRsrc --keepParent "$PROJECT_DIR/dist/DNS守卫.app" "$ARCHIVE"
+ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$ARCHIVE"
 
 cd "$PROJECT_DIR/dist"
 shasum -a 256 "$(basename "$ARCHIVE")" > "$CHECKSUMS"

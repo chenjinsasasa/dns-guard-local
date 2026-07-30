@@ -144,6 +144,124 @@ export function parseRouteInterface(output = '') {
   return output.match(/^\s*interface:\s*(.+)$/m)?.[1]?.trim() || null;
 }
 
+const NETWORK_CLIENT_CATALOG = [
+  {
+    id: 'clash-verge',
+    name: 'Clash Verge Rev',
+    family: 'mihomo',
+    compatibility: 'full',
+    appPaths: ['/Applications/Clash Verge.app'],
+    processPatterns: ['Clash Verge.app/Contents/MacOS/Clash Verge', 'verge-mihomo'],
+  },
+  {
+    id: 'clash-party',
+    name: 'Clash Party',
+    family: 'mihomo',
+    compatibility: 'status',
+    appPaths: ['/Applications/Clash Party.app', '/Applications/Mihomo Party.app'],
+    processPatterns: [
+      'Clash Party.app/Contents/MacOS/Clash Party',
+      'Mihomo Party.app/Contents/MacOS/Mihomo Party',
+    ],
+  },
+  {
+    id: 'flclash',
+    name: 'FlClash',
+    family: 'mihomo',
+    compatibility: 'status',
+    appPaths: ['/Applications/FlClash.app'],
+    processPatterns: ['FlClash.app/Contents/MacOS/FlClash'],
+  },
+  {
+    id: 'surge',
+    name: 'Surge',
+    family: 'surge',
+    compatibility: 'status',
+    appPaths: ['/Applications/Surge.app'],
+    processPatterns: ['Surge.app/Contents/MacOS/Surge'],
+  },
+  {
+    id: 'hiddify',
+    name: 'Hiddify',
+    family: 'sing-box',
+    compatibility: 'detect',
+    appPaths: ['/Applications/Hiddify.app'],
+    processPatterns: ['Hiddify.app/Contents/MacOS/Hiddify'],
+  },
+  {
+    id: 'sing-box',
+    name: 'sing-box',
+    family: 'sing-box',
+    compatibility: 'detect',
+    appPaths: ['/Applications/SFM.app', '/Applications/SFI.app', '/Applications/sing-box.app'],
+    processPatterns: [
+      'SFM.app/Contents/MacOS/SFM',
+      'SFI.app/Contents/MacOS/SFI',
+      'sing-box.app/Contents/MacOS/sing-box',
+    ],
+  },
+  {
+    id: 'tailscale',
+    name: 'Tailscale',
+    family: 'vpn',
+    compatibility: 'status',
+    appPaths: ['/Applications/Tailscale.app'],
+    processPatterns: ['Tailscale.app/Contents/MacOS/Tailscale', 'IPNExtension'],
+  },
+  {
+    id: 'wireguard',
+    name: 'WireGuard',
+    family: 'vpn',
+    compatibility: 'detect',
+    appPaths: ['/Applications/WireGuard.app'],
+    processPatterns: ['WireGuard.app/Contents/MacOS/WireGuard'],
+  },
+];
+
+export function detectNetworkClients({
+  installedPaths = [],
+  processOutput = '',
+  clashRunning = false,
+} = {}) {
+  const installed = new Set(installedPaths);
+  const installedNames = new Set(
+    installedPaths.map((appPath) => String(appPath).split('/').filter(Boolean).at(-1)),
+  );
+  const processes = String(processOutput).toLowerCase();
+  const clients = NETWORK_CLIENT_CATALOG.map((candidate) => {
+    const processMatches = candidate.processPatterns.some(
+      (pattern) => processes.includes(pattern.toLowerCase()),
+    );
+    return {
+      id: candidate.id,
+      name: candidate.name,
+      family: candidate.family,
+      compatibility: candidate.compatibility,
+      installed: candidate.appPaths.some((appPath) => (
+        installed.has(appPath)
+        || installedNames.has(appPath.split('/').at(-1))
+      )),
+      running: candidate.id === 'clash-verge' ? clashRunning || processMatches : processMatches,
+    };
+  }).filter((client) => client.installed || client.running);
+  const primary = clients.find(
+    (client) => client.running && client.compatibility === 'full',
+  ) || clients.find((client) => client.running) || clients[0] || {
+    id: 'system',
+    name: '系统网络',
+    family: 'system',
+    compatibility: 'detect',
+    installed: true,
+    running: true,
+  };
+
+  return {
+    mode: primary.id === 'clash-verge' && clashRunning ? 'managed' : 'monitor',
+    primary,
+    clients,
+  };
+}
+
 export function detectGeoDnsLeak(publicExit = {}, resolvers = []) {
   const exitCode = String(publicExit.countryCode || '').toLowerCase();
   const exitCountry = String(publicExit.country || '').trim().toLowerCase();
@@ -160,13 +278,88 @@ export function detectGeoDnsLeak(publicExit = {}, resolvers = []) {
   };
 }
 
+export function resolveDnsTestVerdict({
+  geoLeaked = false,
+  evidenceComplete = false,
+  clientMode = 'monitor',
+  assessmentLevel = 'risk',
+} = {}) {
+  if (geoLeaked) return 'leak';
+  if (clientMode === 'managed') return assessmentLevel;
+  return evidenceComplete ? 'safe' : 'risk';
+}
+
 function check(id, label, state, value, detail = '') {
   return { id, label, state, value, detail };
+}
+
+function assessMonitorSnapshot(snapshot) {
+  const network = snapshot.network || {};
+  const client = snapshot.client || {};
+  const primary = client.primary || {
+    id: 'system',
+    name: '系统网络',
+    compatibility: 'detect',
+    running: true,
+  };
+  const routedDns = Array.isArray(network.dnsRoutes) ? network.dnsRoutes : [];
+  const capturedRoutes = routedDns.filter(
+    (route) => String(route.interface || '').startsWith('utun'),
+  );
+  const clientRecognized = primary.id !== 'system';
+  const clientValue = clientRecognized
+    ? primary.running ? primary.name : `${primary.name} 未运行`
+    : '仅检测';
+  const compatibilityDetail = primary.compatibility === 'status'
+    ? '支持状态检测'
+    : clientRecognized ? '支持客户端识别' : '未发现完整防护引擎';
+  const checks = [
+    check(
+      'network',
+      '网络链路',
+      network.defaultInterface ? 'pass' : 'fail',
+      network.defaultInterface ? '已连接' : '未连接',
+      network.defaultInterface || '没有默认路由',
+    ),
+    check(
+      'client',
+      '代理客户端',
+      'warn',
+      clientValue,
+      compatibilityDetail,
+    ),
+    check(
+      'dns-route',
+      'DNS 路由',
+      capturedRoutes.length ? 'pass' : 'warn',
+      capturedRoutes.length ? '经过隧道' : '等待检测',
+      routedDns.map((route) => `${route.server} → ${route.interface || '未知'}`).join(' · '),
+    ),
+    check(
+      'ipv6',
+      'IPv6',
+      network.ipv6Address ? 'warn' : 'pass',
+      network.ipv6Address ? '需检测' : '未启用',
+      network.ipv6Address || '当前网络无 IPv6 地址',
+    ),
+  ];
+
+  return {
+    level: network.defaultInterface ? 'risk' : 'offline',
+    title: network.defaultInterface ? '可进行 DNS 检测' : '网络未连接',
+    message: network.defaultInterface ? '当前为仅检测模式' : '没有检测到默认网络路由',
+    checks,
+    endpoints: [],
+    counts: { encrypted: 0, plaintext: 0, system: 0, unknown: 0 },
+  };
 }
 
 export function assessSnapshot(snapshot) {
   const network = snapshot.network || {};
   const clash = snapshot.clash || {};
+  if (snapshot.client?.mode === 'monitor' && !clash.running) {
+    return assessMonitorSnapshot(snapshot);
+  }
   const tun = clash.tun || {};
   const endpoints = collectDnsEndpoints(clash.dns || {});
   const plaintext = endpoints.filter((item) => item.transport === 'plaintext');

@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
@@ -8,9 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var serverProcess: Process?
     private var outputPipe: Pipe?
     private var outputBuffer = ""
-    private var panelURL: URL?
+    private let dashboardStore = DashboardStore()
+    private var windowController: DashboardWindowController?
+    private var serviceURL: URL?
     private var openedAutomatically = false
     private var isQuitting = false
+    private var isRestarting = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureMenu()
@@ -99,7 +103,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         outputBuffer = ""
-        panelURL = nil
+        serviceURL = nil
+        dashboardStore.markServerRestarting()
         openedAutomatically = false
         statusMenuItem.title = "正在启动"
         openMenuItem.isEnabled = false
@@ -123,13 +128,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+            guard let delegate = self else { return }
             DispatchQueue.main.async {
-                self?.consumeOutput(text)
+                delegate.consumeOutput(text)
             }
         }
         process.terminationHandler = { [weak self] terminated in
+            guard let delegate = self else { return }
             DispatchQueue.main.async {
-                self?.serverDidTerminate(code: terminated.terminationStatus)
+                delegate.serverDidTerminate(code: terminated.terminationStatus)
             }
         }
 
@@ -146,26 +153,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func consumeOutput(_ text: String) {
         outputBuffer += text
         let pattern = #"http://127\.0\.0\.1:[0-9]+/\?token=[0-9a-f]+"#
-        guard panelURL == nil,
+        guard serviceURL == nil,
               let range = outputBuffer.range(of: pattern, options: .regularExpression),
               let url = URL(string: String(outputBuffer[range])) else { return }
 
-        panelURL = url
+        guard let connection = parseConnection(url) else {
+            showFailure("本地服务令牌无效，请重新启动。")
+            return
+        }
+
+        serviceURL = url
+        dashboardStore.connect(baseURL: connection.baseURL, token: connection.token)
         statusMenuItem.title = "保护服务运行中"
         openMenuItem.isEnabled = true
         if !openedAutomatically {
             openedAutomatically = true
-            NSWorkspace.shared.open(url)
+            openPanel()
         }
+    }
+
+    private func parseConnection(_ url: URL) -> (baseURL: URL, token: String)? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "http",
+              components.host == "127.0.0.1",
+              let port = components.port,
+              let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
+              !token.isEmpty,
+              let baseURL = URL(string: "http://127.0.0.1:\(port)") else { return nil }
+        return (baseURL, token)
     }
 
     private func serverDidTerminate(code: Int32) {
         outputPipe?.fileHandleForReading.readabilityHandler = nil
         outputPipe = nil
         serverProcess = nil
-        panelURL = nil
+        serviceURL = nil
+        dashboardStore.markServerRestarting()
         openMenuItem.isEnabled = false
-        if isQuitting { return }
+        if isQuitting || isRestarting { return }
 
         statusMenuItem.title = "服务已停止"
         let detail = outputBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -197,14 +222,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openPanel() {
-        guard let panelURL else { return }
-        NSWorkspace.shared.open(panelURL)
+        guard serviceURL != nil else { return }
+        if windowController == nil {
+            windowController = DashboardWindowController(store: dashboardStore)
+        }
+        windowController?.show()
     }
 
     @objc private func restartServer() {
+        isRestarting = true
         statusMenuItem.title = "正在重启"
+        dashboardStore.markServerRestarting()
         stopServer()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.isRestarting = false
             self?.startServer()
         }
     }
@@ -215,9 +246,3 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 }
-
-let application = NSApplication.shared
-let appDelegate = AppDelegate()
-application.setActivationPolicy(.accessory)
-application.delegate = appDelegate
-application.run()
