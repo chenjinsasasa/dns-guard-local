@@ -20,7 +20,6 @@ import {
 
 const execFileAsync = promisify(execFile);
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
-const PUBLIC_DIR = path.join(APP_DIR, 'public');
 const DATA_DIR = process.env.DNS_GUARD_DATA_DIR
   ? path.resolve(process.env.DNS_GUARD_DATA_DIR)
   : path.join(APP_DIR, 'data');
@@ -40,7 +39,7 @@ const DEFAULT_SOCKET = '/tmp/verge/verge-mihomo.sock';
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.DNS_GUARD_PORT || 41731);
 const ACCESS_TOKEN = process.env.DNS_GUARD_TOKEN || crypto.randomBytes(24).toString('hex');
-const APP_VERSION = '1.1.4';
+const APP_VERSION = '1.2.0';
 
 let latestDnsTest = null;
 let operationInProgress = false;
@@ -837,33 +836,6 @@ function isAuthorized(request) {
     && crypto.timingSafeEqual(Buffer.from(token), Buffer.from(ACCESS_TOKEN));
 }
 
-async function serveStatic(request, response, pathname) {
-  const requested = pathname === '/' ? 'index.html' : pathname.slice(1);
-  const target = path.resolve(PUBLIC_DIR, requested);
-  const relative = path.relative(PUBLIC_DIR, target);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new AppError('NOT_FOUND', '页面不存在', 404);
-  }
-
-  const mime = {
-    '.html': 'text/html; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.js': 'text/javascript; charset=utf-8',
-    '.svg': 'image/svg+xml',
-  }[path.extname(target)] || 'application/octet-stream';
-  try {
-    const content = await fs.readFile(target);
-    response.writeHead(200, {
-      'Content-Type': mime,
-      'Cache-Control': 'no-store',
-    });
-    response.end(content);
-  } catch (error) {
-    if (error.code === 'ENOENT') throw new AppError('NOT_FOUND', '页面不存在', 404);
-    throw error;
-  }
-}
-
 async function handleRequest(request, response) {
   applySecurityHeaders(response);
   const expectedHost = `${HOST}:${server.address().port}`;
@@ -878,11 +850,7 @@ async function handleRequest(request, response) {
 
   const url = new URL(request.url, `http://${expectedHost}`);
   if (!url.pathname.startsWith('/api/')) {
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      throw new AppError('METHOD_NOT_ALLOWED', '请求方式无效', 405);
-    }
-    await serveStatic(request, response, url.pathname);
-    return;
+    throw new AppError('NOT_FOUND', '接口不存在', 404);
   }
 
   if (!isAuthorized(request)) {
@@ -930,9 +898,6 @@ server.listen(PORT, HOST, () => {
   const actualPort = server.address().port;
   const url = `http://${HOST}:${actualPort}/?token=${ACCESS_TOKEN}`;
   console.log(`DNS Guard running at ${url}`);
-  if (process.env.DNS_GUARD_NO_OPEN !== '1') {
-    execFile('/usr/bin/open', [url], () => {});
-  }
 });
 
 function shutdown() {

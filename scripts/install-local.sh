@@ -27,6 +27,7 @@ fi
 cd "$PROJECT_DIR"
 npm test
 "$SCRIPT_DIR/build-macos-app.sh"
+"$SCRIPT_DIR/verify-macos-app.sh"
 
 mkdir -p "$DESTINATION_DIR" "$SUPPORT_DIR"
 chmod 700 "$SUPPORT_DIR"

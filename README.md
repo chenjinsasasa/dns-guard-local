@@ -1,12 +1,13 @@
 # DNS 守卫
 
-面向 macOS 与 Clash Verge Rev 的本地 DNS 状态面板、防泄漏开关和双源出口检测工具。
+面向 macOS 与 Clash Verge Rev 的原生 DNS 状态面板、防泄漏开关和双源出口检测工具。
 
 > DNS Guard Local — local-only DNS leak visibility and protection for Mihomo/Clash Verge Rev.
 
 ## 功能
 
 - 查看活动接口、本机地址、默认网关和 IPv6 状态
+- 使用原生 SwiftUI 窗口查看概览、防护、检测与明细
 - 查看 Mihomo TUN、DNS 劫持、严格路由和上游加密状态
 - 通过 Mullvad 与 Net.Coffee 检测真实 DNS 出口
 - 一键移除明文 DNS 与 `system` 回退
@@ -35,15 +36,9 @@ cd dns-guard-local
 ./scripts/install-local.sh
 ```
 
-安装完成后，从 `~/Applications/DNS守卫.app` 启动。应用常驻菜单栏，可打开面板、重新启动或退出。
+安装完成后，从 `~/Applications/DNS守卫.app` 启动。应用常驻菜单栏；关闭窗口不会停止保护服务。
 
-也可以直接运行：
-
-```bash
-npm start
-```
-
-或双击 `一键启动.command`。终端窗口需要保持运行，按 `Control-C` 停止服务。
+也可以双击 `一键启动.command`。首次使用会完成本机安装，之后直接打开原生应用。
 
 ## 未签名版本
 
@@ -70,7 +65,7 @@ npm start
 - 服务只监听 `127.0.0.1`
 - API 使用每次启动生成的随机令牌
 - API 拒绝非本机 Host、跨站 Origin 和无令牌请求
-- 页面不加载第三方脚本、字体或样式
+- 原生界面不使用浏览器、WebView 或第三方 UI 组件
 - 运行数据保存在 `~/Library/Application Support/DNS Guard/`
 - `data/`、配置备份、访问令牌和个人路径不会进入 Git
 - 只有点击“检测”或开启保护后的复测会连接 Mullvad 与 Net.Coffee
@@ -85,7 +80,7 @@ npm run build:mac
 npm run package:mac
 ```
 
-测试包含纯逻辑回归，以及在本机存在 Clash Verge 时执行的真实 Mihomo 配置预检。
+`npm start` 仅用于调试本地 API。测试包含纯逻辑回归、原生界面约束，以及在本机存在 Clash Verge 时执行的真实 Mihomo 配置预检。
 
 ## 卸载
 

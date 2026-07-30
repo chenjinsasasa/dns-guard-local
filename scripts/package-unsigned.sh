@@ -9,6 +9,7 @@ CHECKSUMS="$PROJECT_DIR/dist/SHA256SUMS"
 APP_BUNDLE="$PROJECT_DIR/build/.staging/DNS守卫.app"
 
 "$SCRIPT_DIR/build-macos-app.sh"
+"$SCRIPT_DIR/verify-macos-app.sh"
 if [[ -e "$ARCHIVE" ]]; then
   /bin/rm "$ARCHIVE"
 fi
