@@ -1,0 +1,21 @@
+{
+  "name": "dns-guard-local",
+  "version": "1.1.2",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chenjinsasasa/dns-guard-local.git"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test",
+    "build:mac": "./scripts/build-macos-app.sh",
+    "package:mac": "./scripts/package-unsigned.sh",
+    "install:local": "./scripts/install-local.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

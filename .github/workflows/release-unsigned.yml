@@ -1,0 +1,43 @@
+name: Unsigned Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install yq
+        run: brew install yq
+      - name: Test
+        run: npm test
+      - name: Package unsigned app
+        run: npm run package:mac
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*-unsigned.zip
+            dist/SHA256SUMS
+          body: |
+            ## DNS 守卫
+
+            此构建采用 ad-hoc 签名，未经过 Apple notarization。
+
+            - 安装前请核对 `SHA256SUMS`
+            - 需要 macOS 13+、Node.js 22+、yq 与 Clash Verge Rev
+            - 首次打开可能需要在“系统设置 → 隐私与安全性”中选择“仍要打开”
+          prerelease: true
