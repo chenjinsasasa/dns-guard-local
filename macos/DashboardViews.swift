@@ -138,18 +138,22 @@ private struct OverviewView: View {
                         state: status.network.defaultInterface == nil ? "fail" : "pass"
                     )
                     MetricCard(
-                        title: "Clash",
-                        value: status.clash.running ? "运行中" : "未运行",
-                        detail: [status.clash.mode, status.clash.version].compactMap { $0 }.joined(separator: " · "),
-                        symbol: "point.3.connected.trianglepath.dotted",
-                        state: status.clash.running ? "pass" : "fail"
+                        title: "代理客户端",
+                        value: status.client.primary.name,
+                        detail: clientDetail,
+                        symbol: StateStyle.clientSymbol(status.client.primary.family),
+                        state: status.client.mode == "managed" ? "pass" : "warn"
                     )
                     MetricCard(
                         title: "加密上游",
-                        value: "\(status.assessment.counts.encrypted) 个",
-                        detail: status.assessment.counts.plaintext > 0 ? "发现明文解析" : "未发现明文解析",
+                        value: status.client.mode == "managed" ? "\(status.assessment.counts.encrypted) 个" : "待检测",
+                        detail: status.client.mode == "managed"
+                            ? status.assessment.counts.plaintext > 0 ? "发现明文解析" : "未发现明文解析"
+                            : "运行 DNS 检测",
                         symbol: "lock.shield",
-                        state: status.assessment.counts.plaintext > 0 ? "fail" : "pass"
+                        state: status.client.mode == "managed"
+                            ? status.assessment.counts.plaintext > 0 ? "fail" : "pass"
+                            : "warn"
                     )
                     MetricCard(
                         title: "DNS 路由",
@@ -190,6 +194,12 @@ private struct OverviewView: View {
         if !snapshot.installed { return "未安装" }
         return snapshot.running ? "运行中" : "未连接"
     }
+
+    private var clientDetail: String {
+        let capability = StateStyle.clientCompatibilityLabel(status.client.primary.compatibility)
+        if status.client.primary.id == "system" { return "仅检测模式" }
+        return status.client.primary.running ? capability : "已安装 · \(capability)"
+    }
 }
 
 private struct AssessmentHero: View {
@@ -220,13 +230,19 @@ private struct AssessmentHero: View {
                 Spacer(minLength: 16)
 
                 VStack(alignment: .trailing, spacing: 7) {
-                    Toggle("防泄漏", isOn: Binding(
-                        get: { store.protectionIsOn },
-                        set: { store.setProtection($0) }
-                    ))
-                    .toggleStyle(.switch)
-                    .font(.headline)
-                    .disabled(!store.protectionIsAvailable)
+                    if status.client.mode == "managed" {
+                        Toggle("防泄漏", isOn: Binding(
+                            get: { store.protectionIsOn },
+                            set: { store.setProtection($0) }
+                        ))
+                        .toggleStyle(.switch)
+                        .font(.headline)
+                        .disabled(!store.protectionIsAvailable)
+                    } else {
+                        Label("仅检测", systemImage: "eye")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                    }
                     Text(protectionDetail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -236,6 +252,7 @@ private struct AssessmentHero: View {
     }
 
     private var protectionDetail: String {
+        if status.client.mode == "monitor" { return "仅检测模式" }
         if store.isChangingProtection {
             return store.protectionIsOn ? "正在开启" : "正在恢复"
         }
@@ -253,62 +270,79 @@ private struct ProtectionView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                PageHeader(title: "防泄漏保护", subtitle: "管理 Mihomo DNS 分流")
+                PageHeader(
+                    title: "防泄漏保护",
+                    subtitle: status.client.mode == "managed" ? "管理 Mihomo DNS 分流" : "检测 DNS 路径与出口"
+                )
 
                 Surface(padding: 20) {
                     HStack(spacing: 16) {
                         Image(systemName: "shield.checkered")
                             .font(.system(size: 30, weight: .semibold))
-                            .foregroundStyle(status.protection.effective ? .green : .secondary)
+                            .foregroundStyle(status.protection.effective ? .green : status.client.mode == "monitor" ? .orange : .secondary)
                             .frame(width: 54, height: 54)
-                            .background(.green.opacity(status.protection.effective ? 0.12 : 0.05), in: RoundedRectangle(cornerRadius: 14))
+                            .background(
+                                (status.client.mode == "monitor" ? Color.orange : Color.green)
+                                    .opacity(status.protection.effective || status.client.mode == "monitor" ? 0.12 : 0.05),
+                                in: RoundedRectangle(cornerRadius: 14)
+                            )
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(status.protection.enabled ? "保护已开启" : "保护已关闭")
+                            Text(status.client.mode == "managed"
+                                ? status.protection.enabled ? "保护已开启" : "保护已关闭"
+                                : "仅检测模式")
                                 .font(.title3.weight(.semibold))
                             Text(protectionSummary)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        if store.isChangingProtection {
-                            ProgressView()
-                                .controlSize(.small)
+                        if status.client.mode == "managed" {
+                            if store.isChangingProtection {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            Toggle("", isOn: Binding(
+                                get: { store.protectionIsOn },
+                                set: { store.setProtection($0) }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.large)
+                            .disabled(!store.protectionIsAvailable)
+                        } else {
+                            StatePill(state: "risk")
                         }
-                        Toggle("", isOn: Binding(
-                            get: { store.protectionIsOn },
-                            set: { store.setProtection($0) }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.large)
-                        .disabled(!store.protectionIsAvailable)
                     }
                 }
 
-                HStack(alignment: .top, spacing: 14) {
-                    PolicyCard(
-                        title: "代理查询",
-                        symbol: "globe.americas.fill",
-                        endpoints: status.clash.dns.nameserver ?? [],
-                        footer: status.clash.dns.respectRules == true ? "跟随路由规则" : "未跟随规则"
-                    )
-                    PolicyCard(
-                        title: "直连查询",
-                        symbol: "location.fill",
-                        endpoints: status.clash.dns.directNameserver ?? [],
-                        footer: "国内域名优先"
-                    )
-                }
-
-                Surface {
-                    VStack(alignment: .leading, spacing: 0) {
-                        SettingsRow(label: "TUN 接管", value: status.clash.tun.enable == true ? "已开启" : "未开启", state: status.clash.tun.enable == true ? "pass" : "fail")
-                        Divider()
-                        SettingsRow(label: "DNS 劫持", value: (status.clash.tun.dnsHijack ?? []).joined(separator: " · ").nonempty ?? "未配置", state: checkState("hijack"))
-                        Divider()
-                        SettingsRow(label: "严格路由", value: status.clash.tun.strictRoute == true ? "已开启" : "未开启", state: status.clash.tun.strictRoute == true ? "pass" : "warn")
-                        Divider()
-                        SettingsRow(label: "配置匹配", value: status.protection.profileMatches ? "一致" : "已变化", state: status.protection.profileMatches ? "pass" : "fail")
+                if status.client.mode == "managed" {
+                    HStack(alignment: .top, spacing: 14) {
+                        PolicyCard(
+                            title: "代理查询",
+                            symbol: "globe.americas.fill",
+                            endpoints: status.clash.dns.nameserver ?? [],
+                            footer: status.clash.dns.respectRules == true ? "跟随路由规则" : "未跟随规则"
+                        )
+                        PolicyCard(
+                            title: "直连查询",
+                            symbol: "location.fill",
+                            endpoints: status.clash.dns.directNameserver ?? [],
+                            footer: "国内域名优先"
+                        )
                     }
+
+                    Surface {
+                        VStack(alignment: .leading, spacing: 0) {
+                            SettingsRow(label: "TUN 接管", value: status.clash.tun.enable == true ? "已开启" : "未开启", state: status.clash.tun.enable == true ? "pass" : "fail")
+                            Divider()
+                            SettingsRow(label: "DNS 劫持", value: (status.clash.tun.dnsHijack ?? []).joined(separator: " · ").nonempty ?? "未配置", state: checkState("hijack"))
+                            Divider()
+                            SettingsRow(label: "严格路由", value: status.clash.tun.strictRoute == true ? "已开启" : "未开启", state: status.clash.tun.strictRoute == true ? "pass" : "warn")
+                            Divider()
+                            SettingsRow(label: "配置匹配", value: status.protection.profileMatches ? "一致" : "已变化", state: status.protection.profileMatches ? "pass" : "fail")
+                        }
+                    }
+                } else {
+                    MonitorOnlyProtectionView(client: status.client)
                 }
             }
             .padding(24)
@@ -316,6 +350,11 @@ private struct ProtectionView: View {
     }
 
     private var protectionSummary: String {
+        if status.client.mode == "monitor" {
+            return status.client.primary.id == "system"
+                ? "未发现完整防护引擎"
+                : "\(status.client.primary.name) 当前仅支持检测"
+        }
         if store.isChangingProtection { return store.protectionIsOn ? "正在写入并校验配置" : "正在恢复原始配置" }
         if !status.protection.available { return "请启动 Clash Verge 与 TUN" }
         if status.protection.enabled { return status.protection.effective ? "分流 DNS 已生效" : "运行配置需检查" }
@@ -324,6 +363,42 @@ private struct ProtectionView: View {
 
     private func checkState(_ id: String) -> String {
         status.assessment.checks.first(where: { $0.id == id })?.state ?? "warn"
+    }
+}
+
+private struct MonitorOnlyProtectionView: View {
+    let client: ClientSnapshot
+
+    var body: some View {
+        Surface(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Label("自动防护尚未接入", systemImage: "eye")
+                        .font(.headline)
+                    Text("仍可使用 DNS 检测，不会修改客户端配置。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(16)
+
+                Divider()
+
+                if client.clients.isEmpty {
+                    SettingsRow(label: "当前网络", value: "仅检测", state: "warn")
+                } else {
+                    ForEach(Array(client.clients.enumerated()), id: \.element.id) { index, item in
+                        SettingsRow(
+                            label: item.name,
+                            value: item.running
+                                ? StateStyle.clientCompatibilityLabel(item.compatibility)
+                                : "已安装",
+                            state: item.compatibility == "full" && item.running ? "pass" : "warn"
+                        )
+                        if index < client.clients.count - 1 { Divider() }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -859,6 +934,24 @@ private enum StateStyle {
         case "encrypted", "local": return "pass"
         case "plaintext", "system": return "fail"
         default: return "warn"
+        }
+    }
+
+    static func clientCompatibilityLabel(_ compatibility: String) -> String {
+        switch compatibility {
+        case "full": return "完整防护"
+        case "status": return "状态支持"
+        default: return "识别支持"
+        }
+    }
+
+    static func clientSymbol(_ family: String) -> String {
+        switch family {
+        case "mihomo": return "point.3.connected.trianglepath.dotted"
+        case "surge": return "bolt.horizontal.circle"
+        case "sing-box": return "shippingbox"
+        case "vpn": return "network.badge.shield.half.filled"
+        default: return "network"
         }
     }
 }

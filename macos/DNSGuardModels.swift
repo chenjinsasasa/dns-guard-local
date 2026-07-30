@@ -4,11 +4,27 @@ struct DNSGuardStatus: Decodable {
     let app: AppInfo
     let generatedAt: String
     let network: NetworkSnapshot
+    let client: ClientSnapshot
     let clash: ClashSnapshot
     let tailscale: TailscaleSnapshot
     let protection: ProtectionSnapshot
     let assessment: AssessmentSnapshot
     let dnsTest: DNSTestResult?
+}
+
+struct ClientSnapshot: Decodable {
+    let mode: String
+    let primary: NetworkClient
+    let clients: [NetworkClient]
+}
+
+struct NetworkClient: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let family: String
+    let compatibility: String
+    let installed: Bool
+    let running: Bool
 }
 
 struct AppInfo: Decodable {

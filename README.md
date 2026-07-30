@@ -1,6 +1,6 @@
 # DNS 守卫
 
-面向 macOS 与 Clash Verge Rev 的原生 DNS 状态面板、防泄漏开关和双源出口检测工具。
+面向 macOS 的原生 DNS 状态面板、客户端识别、防泄漏保护和双源出口检测工具。
 
 > DNS Guard Local — local-only DNS leak visibility and protection for Mihomo/Clash Verge Rev.
 
@@ -8,6 +8,8 @@
 
 - 查看活动接口、本机地址、默认网关和 IPv6 状态
 - 使用原生 SwiftUI 窗口查看概览、防护、检测与明细
+- 自动识别 Clash Verge、Clash Party、FlClash、Surge、Hiddify、sing-box、Tailscale 与 WireGuard
+- 没有 Clash 时使用仅检测模式，不修改其他客户端配置
 - 查看 Mihomo TUN、DNS 劫持、严格路由和上游加密状态
 - 通过 Mullvad 与 Net.Coffee 检测真实 DNS 出口
 - 一键移除明文 DNS 与 `system` 回退
@@ -18,15 +20,15 @@
 ## 运行要求
 
 - macOS 13 或更高版本
-- [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev)，并开启 TUN
 - Node.js 22 或更高版本
-- [`yq`](https://github.com/mikefarah/yq)
 
 使用 Homebrew 安装运行依赖：
 
 ```bash
-brew install node yq
+brew install node
 ```
+
+完整防护目前需要 [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev)、TUN 和 [`yq`](https://github.com/mikefarah/yq)。其他客户端目前提供识别或状态支持，DNS 检测功能不依赖 Clash。
 
 ## 本机安装
 
@@ -50,7 +52,16 @@ cd dns-guard-local
 
 项目不会自动关闭 Gatekeeper，也不会自动移除下载文件的 quarantine 属性。
 
-## 防泄漏策略
+## 客户端兼容
+
+- Clash Verge Rev：完整防护、状态读取和配置恢复
+- Clash Party、FlClash、Surge、Tailscale：首批状态识别
+- Hiddify、sing-box、WireGuard：首批客户端识别
+- 未识别客户端：系统网络与外部 DNS 检测
+
+只有确认接入完整适配器时，应用才会显示防护开关。仅检测模式不会修改客户端配置。
+
+## Clash 防泄漏策略
 
 - 代理查询：Cloudflare 与 Google DoH，遵循 Mihomo 路由规则
 - 引导查询：Cloudflare 与 Google DoT

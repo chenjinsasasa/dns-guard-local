@@ -15,13 +15,8 @@ if [[ -z "$NODE_BIN" ]] || (( $("$NODE_BIN" -p 'Number(process.versions.node.spl
   echo "需要 Node.js 22 或更高版本。请先运行：brew install node"
   exit 1
 fi
-if [[ -z "$YQ_BIN" ]]; then
-  echo "需要 yq。请先运行：brew install yq"
-  exit 1
-fi
-if [[ ! -x "/Applications/Clash Verge.app/Contents/MacOS/verge-mihomo" ]]; then
-  echo "未找到 Clash Verge Rev，请先安装并启动 TUN。"
-  exit 1
+if [[ -z "$YQ_BIN" || ! -x "/Applications/Clash Verge.app/Contents/MacOS/verge-mihomo" ]]; then
+  echo "Clash 完整防护依赖未就绪，将使用仅检测模式。"
 fi
 
 cd "$PROJECT_DIR"

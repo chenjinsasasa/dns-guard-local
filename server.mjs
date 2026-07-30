@@ -11,10 +11,12 @@ import {
   assessSnapshot,
   buildManagedDns,
   clone,
+  detectNetworkClients,
   detectGeoDnsLeak,
   parseDefaultRoute,
   parseRouteInterface,
   parseSystemDns,
+  resolveDnsTestVerdict,
   sameValue,
 } from './core.mjs';
 
@@ -39,7 +41,7 @@ const DEFAULT_SOCKET = '/tmp/verge/verge-mihomo.sock';
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.DNS_GUARD_PORT || 41731);
 const ACCESS_TOKEN = process.env.DNS_GUARD_TOKEN || crypto.randomBytes(24).toString('hex');
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 
 let latestDnsTest = null;
 let operationInProgress = false;
@@ -76,6 +78,24 @@ async function pathExists(target) {
   } catch {
     return false;
   }
+}
+
+async function listInstalledApplications() {
+  const directories = [
+    '/Applications',
+    path.join(os.homedir(), 'Applications'),
+  ];
+  const results = await Promise.all(directories.map(async (directory) => {
+    try {
+      const entries = await fs.readdir(directory, { withFileTypes: true });
+      return entries
+        .filter((entry) => entry.isDirectory() && entry.name.endsWith('.app'))
+        .map((entry) => path.join(directory, entry.name));
+    } catch {
+      return [];
+    }
+  }));
+  return results.flat();
 }
 
 function assertInside(parent, target) {
@@ -310,9 +330,11 @@ async function getProtectionSnapshot(clash) {
 }
 
 async function buildStatus() {
-  const [network, tailscale] = await Promise.all([
+  const [network, tailscale, installedPaths, processOutput] = await Promise.all([
     getNetworkSnapshot(),
     getTailscaleSnapshot(),
+    listInstalledApplications(),
+    tryRun('ps', ['-axo', 'command='], { timeout: 4_000, maxBuffer: 8 * 1024 * 1024 }),
   ]);
 
   let clash;
@@ -342,7 +364,12 @@ async function buildStatus() {
   };
   if (clash.activeProfile) protection = await getProtectionSnapshot(clash);
 
-  const assessment = assessSnapshot({ network, clash });
+  const client = detectNetworkClients({
+    installedPaths,
+    processOutput,
+    clashRunning: clash.running,
+  });
+  const assessment = assessSnapshot({ network, clash, client });
   if (latestDnsTest) {
     const externalState = latestDnsTest.verdict === 'leak'
       ? 'fail'
@@ -360,12 +387,17 @@ async function buildStatus() {
       assessment.message = latestDnsTest.leakReason === 'china-dns'
         ? '发现中国大陆 DNS 出口'
         : '外部解析路径存在风险';
+    } else if (externalState === 'pass' && client.mode === 'monitor') {
+      assessment.level = 'safe';
+      assessment.title = '外部检测未发现泄漏';
+      assessment.message = '当前解析出口未发现异常';
     }
   }
   return {
     app: { version: APP_VERSION, localOnly: true },
     generatedAt: new Date().toISOString(),
     network,
+    client,
     clash: {
       running: clash.running,
       version: clash.version,
@@ -777,7 +809,12 @@ async function runDnsTest() {
     latencyMs: Date.now() - started,
     resolvers,
     publicExit,
-    verdict: geoLeak.leaked ? 'leak' : status.assessment.level,
+    verdict: resolveDnsTestVerdict({
+      geoLeaked: geoLeak.leaked,
+      evidenceComplete: Boolean(publicExit.ip && resolvers.length),
+      clientMode: status.client.mode,
+      assessmentLevel: status.assessment.level,
+    }),
     leakReason: geoLeak.leaked ? 'china-dns' : null,
     source: netCoffeeSettled.ok ? 'Mullvad + Net.Coffee' : 'Mullvad',
     partial: queryResults.length < queries.length
