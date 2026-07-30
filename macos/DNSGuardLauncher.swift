@@ -128,13 +128,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+            guard let delegate = self else { return }
             DispatchQueue.main.async {
-                self?.consumeOutput(text)
+                delegate.consumeOutput(text)
             }
         }
         process.terminationHandler = { [weak self] terminated in
+            guard let delegate = self else { return }
             DispatchQueue.main.async {
-                self?.serverDidTerminate(code: terminated.terminationStatus)
+                delegate.serverDidTerminate(code: terminated.terminationStatus)
             }
         }
 

@@ -112,9 +112,10 @@ final class DashboardStore: ObservableObject {
     private func startRefreshTimer() {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            guard let store = self else { return }
             Task { @MainActor in
-                guard let self, !self.isBusy else { return }
-                self.refresh(quiet: true)
+                guard !store.isBusy else { return }
+                store.refresh(quiet: true)
             }
         }
     }
